@@ -1,22 +1,27 @@
-library("GenomicFeatures")
+library("GenomicFeatures") #this provides tools for extracting genomic features based on locations after specifying which genome browser to use 
 #library("DESeq2")
 #BiocManager::install("DESeq2")
-library( "Rsamtools" )
-library("GenomicAlignments")
-library('tidyr')
-library('dplyr')
-library(edgeR)
-library(ggplot2)
+library( "Rsamtools" ) # samtools interface for R
+library("GenomicAlignments") # containers for storing gene alignments - read counting, computing coverage, nuc content etc.
+library('tidyr') # package for 'tidying' data with limited set of functions for reshaping
+library('dplyr') # set of functions for data manipulation
+library(edgeR) # differential expression analysis
+library(ggplot2) # makes fancy plots
 
 #https://wikis.utexas.edu/display/bioiteam/Differential+gene+expression+analysisetp
 #and more https://bioinformatics-core-shared-training.github.io/cruk-bioinf-sschool/Day3/rnaSeq_DE.pdf
 
 #sample_info = read.csv("/ebio/abt6_projects8/Pseudomonas_mapping/mneumann_tnseq/TnSeq_Oct19/sampleInfo_TnSeq_Oct2019.csv", header = T, row.names = 1)
 
-#the order in the counts2.gff is the order in *.bam
+#the order in the counts2.gff is the order in *.bam (assigns 'sample_order' to an order table from a bam_order text file that can be used to order the count files?)
+# should there be a separate bam_order file? Is it the same for all count files or do we need to write this in a way that is inclusive of all the count files?
 sample_order = read.table("/ebio/abt6_projects8/Pseudomonas_mapping/data/tnseq/plaurin_talia_process/bam_order.txt")
 
+
+# this reads in the count files from a delimited file, specifies that the first line is not column headers and assigns the data to the variable 'counts'
 counts = read.delim("/ebio/abt6_projects8/Pseudomonas_mapping/data/tnseq/plaurin_talia_process/counts_plaurin.gff", header=F)
+
+# count_table is a subset of counts including all rows and all the columns from 10 on? (I'm understanding dim(counts)[2] giving the columns count from the table dimensions) Is this right? Why are the first 10 excluded?
 
 count_table = counts[,c(10:dim(counts)[2])]
 rownames(count_table) = counts$V9
@@ -63,6 +68,9 @@ ggplot(data = mds, aes(x = MDS1, y = MDS2)) +
 
 dev.off()
 
+###########################
+# THIS IS WHERE THE REGRESSION COEFFICIENT ESIMATION BEGINS
+###########################
 
 # Make the model matrix
 design = model.matrix(~samp_info$class + samp_info$batch) # Create design matrix for glm
@@ -76,104 +84,7 @@ fit = glmFit(dge,design)
 #lrt3vs1 <- glmLRT(fit, coef=3)
 
 # Perform the LRT
-lrt3vs2 <- glmLRT(fit, coef = 2)
-etp = topTags(lrt3vs2, n=100000)
-deGenes <- decideTestsDGE(lrt3vs2, p=0.001)
-
-# dge <- estimateCommonDisp(dgList)
-# dge <- estimateTagwiseDisp(dge)
-# et <- exactTest(dge, pair = c("33t0", "33")) # This output the comparsion of B - A so genes with positive log-fold change are uregulated in group B
-# etp <- topTags(et, n=100000)
-etp$table$logFC = -etp$table$logFC
-
-
-fin_data = etp$table
-
-
-pdf("/ebio/abt6_projects8/Pseudomonas_mapping/data/fig_misc/tnseq_diff_plaurin_full_genome.pdf", useDingbats = FALSE, fonts = "ArialMT")
-
-ggplot(data = fin_data, aes(x = logFC, y = -log10(FDR))) +
-  geom_point(data = subset(fin_data, FDR < 0.01), col = "RED") +
-  geom_point(data = subset(fin_data, FDR > 0.01), col = "GREY") +
-  geom_vline(xintercept = 0) +
-  geom_hline(yintercept = 0) +
-  geom_hline(yintercept = 0.05, linetype = "dashed") +
-  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
-  theme_linedraw() + 
-  theme(panel.grid = element_blank()) +
-  xlab("Fold change (log2)") +
-  ylab("FDR (log10)") 
-
-dev.off()
-
-
-write.csv(etp$table, "/ebio/abt6_projects8/Pseudomonas_mapping/data/tnseq/plaurin_talia_process/edgeR-wt-vs-mut.csv")
-
-#underrepresented in plant
-sig <- etp[which(etp$table$FDR < 0.01),]
-under <- sig[which(sig$table$logFC < 0),]
-over <- sig[which(sig$table$logFC > 0),]
-
-# #Tutorial on how to use deseq
-# #before you start connect to server smb://reo.eb.local/abt6_projects8/Pseudomonas_mapping
-# #Load the gene annotation file
-# hse <- makeTxDbFromGFF("~/work_main/abt6_projects8/Pseudomonas_mapping/poo/counts2.gff", format="auto" )
-# 
-# # exonsbygene
-# exonsByGene <- exonsBy( hse, by="gene" )
-# 
-# #Load the bam files
-# fls <- list.files( "~/work_main/abt6_projects8/Pseudomonas_mapping/mneumann_tnseq/TnSeq_Oct19", pattern="bam$", full=TRUE )
-# 
-# 
-# 
-# #Specify lines to read in at a time (Not clear why but we are doing it anyways)
-# bamLst <- BamFileList( fls, yieldSize=100000 )
-# 
-# 
-# 
-# #Run overlap analysis
-# se <- summarizeOverlaps( exonsByGene, bamLst,
-#                          mode="Union",
-#                          singleEnd=FALSE,
-#                          ignore.strand=TRUE,
-#                          fragments=TRUE )
-# #! needs time to run! check data:colnames 
-# se
-# #class: RangedSummarizedExperiment 
-# #dim: 6 162 
-# #metadata(0):
-# # assays(1): counts
-# #rownames(6): Hgd_1 Hgd_2 ... aaeB_1 aaeB_2
-# #rowData names(0):
-# #  colnames(162): plate1_A1_33.bam plate1_A10_310.bam ... plate2_H8_310t0.bam plate2_H9_310t0.bam
-# #colData names(0):
-# head( assay(se) )
-# colSums( assay(se) )
-# colData(se)
-# rowData(se)
-# 
-# 
-# #using the data for analysis
-# 
-# # need fls (all bam files) as csv file:
-# write.csv(fls, file.path("/Volumes/Pseudomonas_mapping/mneumann_tnseq/TnSeq_Oct19", "bamfiles.csv"), row.names=FALSE )
-# 
-# # Read in sample info file
-# # for separate function you need "library('tidyr')"
-# # sampleInfo <- read.csv("/path/to/file.CSV" )
-# 
-# #sampleInfo <- read.csv( "/Volumes/Pseudomonas_mapping/mneumann_tnseq/TnSeq_Oct19/name2.csv" )
-# #sampleInfo_sep = separate(sampleInfo, x, into = c("sample_name", "treatment"), sep = "-")
-# #sampleInfo_sep = separate(sampleInfo_sep, treatment, into = c("treatment", "timepoint"), sep = "       ")
-# #sampleInfo_sep$sample_name = rename(sampleInfo_sep$sample_name, /Volumes/Pseudomonas_mapping/mneumann_tnseq/TnSeq_Oct19/ into 
-# 
-# 
-# sampleInfo2 <- read.csv( "/Volumes/Pseudomonas_mapping/mneumann_tnseq/TnSeq_Oct19/bamfiles.csv")
-# sampleInfo_sep2 = separate(sampleInfo2, x, into = c("x1","x2", "x3", "x4", "X5", "X6"), sep = "/")
-# head(sampleInfo_sep2)
-# real_thing = sampleInfo_sep2$X6
-# real_thing = as.data.frame(real_thing)
+???LINES MISSING
 # sampleInfo_sep2 = separate(real_thing, 1, into = c("sample_name","position", "treatment"), sep = "_")
 # head(sampleInfo_sep2)
 # sampleInfo_sep2 = separate(sampleInfo_sep2, treatment, into = c("batch", "timepoint"), sep = "_")

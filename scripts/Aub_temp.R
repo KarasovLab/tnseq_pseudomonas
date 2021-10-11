@@ -1,55 +1,75 @@
-library("GenomicFeatures")
+library("GenomicFeatures") #this provides tools for extracting genomic features based on locations after specifying which genome browser to use 
 #library("DESeq2")
 #BiocManager::install("DESeq2")
-library( "Rsamtools" )
-library("GenomicAlignments")
-library('tidyr')
-library('dplyr')
-library(edgeR)
-library(ggplot2)
+library( "Rsamtools" ) # samtools interface for R
+library("GenomicAlignments") # containers for storing gene alignments - read counting, computing coverage, nuc content etc.
+library('tidyr') # package for 'tidying' data with limited set of functions for reshaping
+library('dplyr') # set of functions for data manipulation
+library(edgeR) # differential expression analysis
+library(ggplot2) # makes fancy plots
 
 #https://wikis.utexas.edu/display/bioiteam/Differential+gene+expression+analysisetp
 #and more https://bioinformatics-core-shared-training.github.io/cruk-bioinf-sschool/Day3/rnaSeq_DE.pdf
 
 #sample_info = read.csv("/ebio/abt6_projects8/Pseudomonas_mapping/mneumann_tnseq/TnSeq_Oct19/sampleInfo_TnSeq_Oct2019.csv", header = T, row.names = 1)
 
-#the order in the counts2.gff is the order in *.bam
+#the order in the counts2.gff is the order in *.bam (make an order table from a bam_order text file that can be used to order the count files?)
+# should there be a separate bam_order file? Is it the same for all count files or do we need to write this in a way that is inclusive of all the count files?
 sample_order = read.table("/ebio/abt6_projects8/Pseudomonas_mapping/data/tnseq/plaurin_talia_process/bam_order.txt")
 
+# makes a new table, "counts", by reading in the delimited file (the gffs) - the first row does not contain column headers
 counts = read.delim("/ebio/abt6_projects8/Pseudomonas_mapping/data/tnseq/plaurin_talia_process/counts_plaurin.gff", header=F)
 
+# count_table takes all rows and columns 10 on from 'counts' (I understand dim(counts)[2] to give the number of columns in 'counts'). Why is this starting from 10? <- 10 is where the counts start. Before that is information about the region being counted. Is each column after for one of the samples/bams?
 count_table = counts[,c(10:dim(counts)[2])]
+# this uses the list named V9 from 'counts' as the row names - what is V9? Will this be the same for the new gffs?
 rownames(count_table) = counts$V9
+# this uses column 1 from the bam_order file as the column names for 'count_table'
 colnames(count_table) = sample_order[,1]
 head(counts)
 
 #Setting up the factors
+#I'm not sure everything this one is doing... It seems like it is separating column V1 from sample_order and storing the new names 'plate', 'pos' and 'time', with columns separated by '_', then it calls the vector you just named 'time', so that factor() is being done on 'time', but I'm not clear what 'factor' does or what is actually stored in 'time'. I'm guessing the time points since 'group-type' is called later and the values 33t0 and 310t0 are replaced? 
 group_type <- factor(separate(sample_order, V1, into = c("plate", "pos", "time"), sep ="_"  )$time)
+#Is this taking the factors from group type and converting them to strings? I'm not clear what is meant by 'character'?
 group_batch <- as.character(group_type)
+# 'which' gives the index of the specified string in the variable you name, so in this case, it finds the strings and uses the index values to replace it with the new string. In group_batch, does the exclusion of t0 refer to the batch at t3? 
 group_batch[which(group_batch == "33")] <- "Treated"
 group_batch[which(group_batch == "310")] <- "Treated"
 group_batch[which(group_batch == "33t0")] <- "T0"
 group_batch[which(group_batch == "310t0")] <- "T0"
 group_type[which(group_type == "33t0")] <- "33"
 group_type[which(group_type == "310t0")] <- "310"
+# If I'm understanding this right, these are all from the list of bams and are based on the file naming conventions used for the earlier experiment. Do we want to use the same conventions here? Will we need to specify strains somewhere as well as time and treated/not?
+# Group types will be DC300, p7g9 and p25c2 and each of the controls?
+# Group batch will be T0 and T3?
 
+# converts the batch back to a factor
 group_batch = as.factor(group_batch)
+
+# makes a data frame with group_type and group_batch and passes it through a filter so that only the samples with the class specified as TO or Treated will be output to samp_info
 samp_info <- data.frame(batch = group_type, class = group_batch) %>% filter(class %in% c("T0", "Treated"))
+# batch and class converted back to characters
 samp_info$class <- as.factor(as.character((samp_info$class)))
 samp_info$batch <- as.factor(as.character((samp_info$batch)))
+# limits count table to all rows, but only the columns with TO or Treated (based on the index in group_batch)
 count_table = count_table[,which(group_batch %in% c("T0", "Treated"))]
 
+# dge will be an object with rows that specify features, columns that specify samples and each cell will be the counts for the feature for each sample
 dge = DGEList(counts=count_table)
 # countsPerMillion <- cpm(dge)
 # summary(countsPerMillion)
 # countCheck <- countsPerMillion > 1
 # keep <- which(rowSums(countCheck) >= 2)
+
+#not sure what is being trimmed or how
 dge.trimmed <- dge #[keep,]
 
 #Normalize library size
 dge <- calcNormFactors(dge.trimmed, method="none") # Normalize library sizes using TMM
 
-#Perfomr MDS on dge.trimmed
+#Perform MDS on dge.trimmed
+# is this the volcano plot?
 mds <- t(dge.trimmed$counts) %>% dist() %>% cmdscale() %>% data.frame()
 colnames(mds) <- c("MDS1", "MDS2")
 
@@ -63,6 +83,9 @@ ggplot(data = mds, aes(x = MDS1, y = MDS2)) +
 
 dev.off()
 
+###########################
+# THIS IS WHERE THE REGRESSION COEFFICIENT ESIMATION BEGINS
+###########################
 
 # Make the model matrix
 design = model.matrix(~samp_info$class + samp_info$batch) # Create design matrix for glm

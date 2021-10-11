@@ -63,6 +63,9 @@ ggplot(data = mds, aes(x = MDS1, y = MDS2)) +
 
 dev.off()
 
+###########################
+# THIS IS WHERE THE REGRESSION COEFFICIENT ESIMATION BEGINS
+###########################
 
 # Make the model matrix
 design = model.matrix(~samp_info$class + samp_info$batch) # Create design matrix for glm

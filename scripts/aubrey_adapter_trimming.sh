@@ -14,7 +14,7 @@
 #for file in `ls $read_direc`; do foo=${file#$prefix}; foo=${foo%$suffix}; sample=$foo; qsub  -v sample=$sample /uufs/chpc.utah.edu/common/home/karasov-group1/tnseq/scripts/tnseq_pseudomonas/scripts/adapter_trimming.sh; done
 #
 #
-cd /uufs/chpc.utah.edu/common/home/karasov-group1/tnseq/data/Aubrey/
+cd /uufs/chpc.utah.edu/common/home/karasov-group1/tnseq/data/Talia/
 read_direc=/uufs/chpc.utah.edu/common/home/karasov-group1/SRA/weigel_tnseq/TnSeq_2020_08_28/illumina_ST-J00101_flowcellA_SampleIdTnSeq_DC3000_T3_plate4_A7_RunId0183_LaneId6
 ##prefix=illumina_ST-J00101_flowcellA_SampleId
 ##suffix=_LaneId2
@@ -25,23 +25,23 @@ sample=TnSeq_s49_L006_R1_001.fastq.gz
 #
 ##/ebio/abt6_projects9/Pseudomonas_diversity/Programs/Super-Deduper/super_deduper -1 $read_direc/*R1* -2 $read_direc/*R2* -p $sample.dedup -g
 #
-/uufs/chpc.utah.edu/common/home/u0572090/anaconda3/bin/hts_SuperDeduper -U $read_direc/*R1* -f --F $sample.dedup 
+/uufs/chpc.utah.edu/common/home/u0572090/anaconda3/bin/hts_SuperDeduper -1 $read_direc/*R1* -2 $read_direc/*R2* -f $sample.dedup -F
 #
 ##rm $sample.dedup_nodup_PE2.fastq.gz
 #
 ##/ebio/abt6/tkarasov/.local/bin/cutadapt -g ^CAGGACGCTACTTGTGTATAAG --discard-untrimmed $sample.dedup_nodup_PE1.fastq.gz  | grep -A2 -B1 ^AGTCA  | sed '/^--$/d' > temp.$sample.fastq
 ##/ebio/abt6/tkarasov/.local/bin/cutadapt -g ^AGTCA --discard-untrimmed  temp.$sample.fastq > $sample.R1_trimmed.fastq
-#/uufs/chpc.utah.edu/common/home/karasov-group1/bin/cutadapt -g ^CAGGACGCTACTTGTGTATAAG --discard-untrimmed TnSeq_s49_L006_R1_001.fastq.gz.dedup_SE.fasta.gz  | grep -A2 -B1 ^AGTCA  | sed '/^--$/d' > temp.$sample.fastq
-#//uufs/chpc.utah.edu/common/home/karasov-group1/bin/cutadapt -g ^AGTCA --discard-untrimmed  temp.$sample.fastq > $sample.R1_trimmed.fastq
+/uufs/chpc.utah.edu/common/home/karasov-group1/bin/cutadapt -g ^CAGGACGCTACTTGTGTATAAG --discard-untrimmed TnSeq_s49_L006_R1_001.fastq.gz.dedup_R1.fastq.gz  | sed '/^--$/d' > temp.$sample.fastq
+/uufs/chpc.utah.edu/common/home/karasov-group1/bin/cutadapt -g ^AGTCA --discard-untrimmed  temp.$sample.fastq > $sample.R1_trimmed.fastq
 #                                          
 ##now to map to the NP29.1a genome which has already been indexed with following command
-##bwa index /ebio/abt6_projects9/Pseudomonas_diversity/Tnseq/processed_reads/NP29_index/NP29.1a_11252011.fasta
+bwa index  /uufs/chpc.utah.edu/common/home/karasov-group1/tnseq/data/ref_database/references_sequences/DC3000_GCF_000007805.1/GCF_000007805.1_ASM780v1_genomic.fna
 ##index=/ebio/abt6_projects9/Pseudomonas_diversity/Tnseq/processed_reads/NP29_index/NP29.1a_11252011.fasta
 #
-#index= /uufs/chpc.utah.edu/common/home/karasov-group1/tnseq/data/ref_database/references_sequences/DC3000_GCF_000007805.1/GCF_000007805.1_ASM780v1_genomic.fna
+index=/uufs/chpc.utah.edu/common/home/karasov-group1/tnseq/data/ref_database/references_sequences/DC3000_GCF_000007805.1/GCF_000007805.1_ASM780v1_genomic.fna
 #
-#/uufs/chpc.utah.edu/common/home/u0572090/anaconda3/bin/bwa mem -t 4 $index  $sample.R1_trimmed.fastq > $sample.sam
-#/uufs/chpc.utah.edu/common/home/u0572090/anaconda3/bin/samtools view -bT $index $sample.sam >$sample.bam
+/uufs/chpc.utah.edu/common/home/u0572090/anaconda3/bin/bwa mem -t 4 $index  $sample.R1_trimmed.fastq > $sample.sam
+/uufs/chpc.utah.edu/common/home/u0572090/anaconda3/bin/samtools view -bT $index $sample.sam >$sample.bam
 #
 ##to get the stats for mapping
 #/uufs/chpc.utah.edu/common/home/u0572090/anaconda3/bin/samtools flagstat $sample.bam
