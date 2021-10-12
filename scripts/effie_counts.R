@@ -65,7 +65,7 @@ mds_15 <- make_mds(is_15)
 mds_5 <- make_mds(is_5)
 
 
-pdf("./MDS_all_sqrt.pdf", useDingbats = FALSE, fonts = "ArialMT")
+pdf("../figs/MDS_all_sqrt.pdf", useDingbats = FALSE, fonts = "ArialMT")
 
 p1 <- ggplot(data = data.frame(mds$points), aes(x = MDS1, y = MDS2)) +
   geom_point( aes(color = dge.trimmed$samples$plant_extract, shape = as.factor(sample_order$concentration)), cex = 3) +
@@ -119,7 +119,7 @@ etp$table$logFC = -etp$table$logFC
 fin_data = etp$table
 
 
-pdf("tnseq/tnseq_diff_p25c2_full_genome.pdf", useDingbats = FALSE, fonts = "ArialMT")
+pdf("../figs/tnseq_diff_p25c2_full_genome.pdf", useDingbats = FALSE, fonts = "ArialMT")
 
 ggplot(data = fin_data, aes(x = logFC, y = -log10(FDR))) +
   geom_point(data = subset(fin_data, FDR < 0.01), col = "RED") +
